@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16181a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bancada">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Bancada – Guia de Testes Automotivos (offline)</title>
+
+
+<style>
+/* ===== Utilitários mínimos (substituem o Tailwind, para funcionar 100% offline) ===== */
+*,*::before,*::after{box-sizing:border-box}body{margin:0}h1,h3,h4,p,ul,dl,dd{margin:0}ul{padding:0}
+/* reset de botões e campos (antes vinha do Tailwind) */
+button,input{font:inherit;color:inherit;margin:0}
+button{background:none;border:0;padding:0;cursor:pointer;text-align:inherit}
+input{outline-offset:2px}
+.min-h-screen{min-height:100vh}.sticky{position:sticky}.top-0{top:0}.z-20{z-index:20}.max-w-5xl{max-width:64rem}.mx-auto{margin-inline:auto}
+.px-4{padding-inline:1rem}.pt-4{padding-top:1rem}.pb-3{padding-bottom:.75rem}.pb-1{padding-bottom:.25rem}.pb-8{padding-bottom:2rem}.py-5{padding-block:1.25rem}.p-6{padding:1.5rem}.pl-5{padding-left:1.25rem}
+.mt-1{margin-top:.25rem}.mt-3{margin-top:.75rem}.mt-8{margin-top:2rem}.mb-3{margin-bottom:.75rem}
+.text-xs{font-size:.75rem}.text-sm{font-size:.875rem}.text-base{font-size:1rem}.text-xl{font-size:1.25rem}.text-2xl{font-size:1.5rem}.text-3xl{font-size:1.875rem}
+.font-bold{font-weight:700}.font-semibold{font-weight:600}.leading-none{line-height:1}.leading-tight{line-height:1.25}.text-center{text-align:center}
+.flex{display:flex}.flex-1{flex:1}.grid{display:grid}.gap-2{gap:.5rem}.gap-4{gap:1rem}.items-start{align-items:flex-start}.overflow-x-auto{overflow-x:auto}
+.w-full{width:100%}.rounded-xl{border-radius:.75rem}.list-disc{list-style:disc}.space-y-1>*+*{margin-top:.25rem}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+@media(min-width:640px){.sm\:text-4xl{font-size:2.25rem}.sm\:text-2xl{font-size:1.5rem}}
+@media(min-width:768px){.md\:grid-cols-2{grid-template-columns:repeat(2,1fr)}.md\:col-span-2{grid-column:span 2}}
+/* Fichas de veículos */
+.specs{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin-top:12px;font-size:.92rem}
+.specs dt{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+</style>
+<style>
+  /* ===== Tokens de cor: tema oficina (grafite + laranja de multímetro) ===== */
+  :root{
+    --bg:#16181a;        /* grafite */
+    --panel:#202327;     /* cards */
+    --panel-2:#2a2e33;   /* blocos internos */
+    --line:#3a3f45;
+    --text:#e8e6e1;
+    --muted:#9aa0a6;
+    --amber:#ff9d1c;     /* leituras / destaque */
+    --ok:#4ade80;        /* valor bom */
+    --bad:#ff5d4d;       /* valor ruim */
+  }
+  html{background:var(--bg)}
+  body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  body{background:var(--bg);color:var(--text);font-family:'Barlow',system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+  .display{font-family:'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.01em}
+  .reading{font-family:'IBM Plex Mono',ui-monospace,monospace}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+  /* Chips de categoria: área de toque grande (44px+) */
+  .chip{min-height:44px;padding:0 18px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);font-weight:600;white-space:nowrap;transition:background .15s,color .15s}
+  .chip[aria-pressed="true"]{background:var(--amber);color:#1a1200;border-color:var(--amber)}
+
+  /* Cards */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .card[data-open="true"]{border-color:var(--amber)}
+  .card-head{width:100%;text-align:left;display:flex;gap:14px;align-items:center;padding:16px;min-height:72px}
+  .icon{flex:none;width:48px;height:48px;border-radius:10px;background:var(--panel-2);display:grid;place-items:center;font-size:26px}
+  .body{display:none;padding:0 16px 18px}
+  .card[data-open="true"] .body{display:block}
+  .card[data-open="true"] .arrow{transform:rotate(180deg)}
+  .arrow{transition:transform .2s;color:var(--amber)}
+
+  .sec{background:var(--panel-2);border-radius:10px;padding:14px;margin-top:12px}
+  .sec h4{font-family:'Barlow Condensed',sans-serif;font-size:1.15rem;color:var(--amber);margin-bottom:8px}
+  .tag{display:inline-block;background:#0f1113;border:1px solid var(--line);border-radius:6px;padding:4px 9px;margin:0 6px 6px 0;font-size:.85rem}
+
+  /* Passos marcáveis */
+  .step{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;padding:10px 0;min-height:44px;border-top:1px solid var(--line)}
+  .step:first-of-type{border-top:0}
+  .box{flex:none;width:24px;height:24px;border-radius:6px;border:2px solid var(--muted);display:grid;place-items:center;font-weight:700;color:transparent;margin-top:1px}
+  .step[aria-checked="true"] .box{background:var(--ok);border-color:var(--ok);color:#06210f}
+  .step[aria-checked="true"] span:last-child{color:var(--muted);text-decoration:line-through}
+
+  /* Tabela de referência */
+  .tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;min-width:420px;font-size:.92rem}
+  th{background:#0f1113;text-align:left;padding:9px 10px;font-weight:600;color:var(--muted)}
+  td{padding:9px 10px;border-top:1px solid var(--line);vertical-align:top}
+  td.v{font-family:'IBM Plex Mono',monospace;color:var(--amber);white-space:nowrap}
+  tr.good td:first-child{border-left:4px solid var(--ok)}
+  tr.bad  td:first-child{border-left:4px solid var(--bad)}
+  .pill-ok{color:var(--ok)} .pill-bad{color:var(--bad)}
+
+  .warn{border-left:4px solid var(--amber);background:#2b2416;padding:10px 12px;border-radius:6px;font-size:.92rem}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+
+<body class="min-h-screen">
+
+<!-- ===== Cabeçalho fixo com busca e filtros ===== -->
+<header class="sticky top-0 z-20" style="background:rgba(22,24,26,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)">
+  <div class="max-w-5xl mx-auto px-4 pt-4 pb-3">
+    <h1 class="display text-3xl sm:text-4xl font-bold leading-none">Bancada <span style="color:var(--muted);font-weight:600" class="text-xl sm:text-2xl">guia de testes automotivos</span></h1>
+
+    <label class="sr-only" for="busca">Buscar componente ou sintoma</label>
+    <input id="busca" type="search" autocomplete="off" placeholder="Buscar componente, sintoma, marca ou modelo…"
+      class="w-full mt-3 rounded-xl px-4 text-base"
+      style="height:52px;background:var(--panel);border:1px solid var(--line);color:var(--text)">
+
+    <div id="filtros" class="flex gap-2 mt-3 overflow-x-auto pb-1" role="group" aria-label="Categorias">
+      <button class="chip" data-cat="todos" aria-pressed="true">Todos</button>
+      <button class="chip" data-cat="Sensores" aria-pressed="false">Sensores</button>
+      <button class="chip" data-cat="Atuadores" aria-pressed="false">Atuadores</button>
+      <button class="chip" data-cat="Redes/Módulos" aria-pressed="false">Redes e módulos</button>
+      <button class="chip" data-cat="Veículos" aria-pressed="false">Veículos</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-5">
+  <p id="contagem" class="text-sm mb-3" style="color:var(--muted)" aria-live="polite"></p>
+  <div id="lista" class="grid gap-4 md:grid-cols-2 items-start"></div>
+  <p class="text-xs mt-8 pb-8" style="color:var(--muted)">Valores típicos para uso de oficina. Cores de fios e resistências mudam por marca e modelo: confirme sempre no esquema elétrico do veículo.</p>
+</main>
+
+<script>
+/* Tudo dentro de uma função isolada: evita conflito de nomes e mostra erro na tela, se houver */
+(function(){ try {
+/* =====================================================================
+   BASE DE DADOS
+   Para cadastrar um novo componente, copie um objeto abaixo e edite.
+   Campos: id, nome, cat, icone, tags (busca), sintomas (busca),
+           ferramentas[], onde[], passos[], tabela[] ({cond, valor, ok}), aviso
+   ===================================================================== */
+const COMPONENTES = [
+  {
+    id:'ckp', nome:'Sensor de Rotação (CKP)', cat:'Sensores', icone:'⚙️',
+    tags:['ckp','rotacao','rotação','virabrequim','roda fonica','indutivo','hall'],
+    sintomas:['não pega','falha','apaga do nada','morre em movimento','sem partida','sem rotação no painel'],
+    ferramentas:['Multímetro','Osciloscópio','Chave de fenda/torx'],
+    onde:[
+      'Indutivo: 2 fios (sinal + / sinal −), geralmente com malha de blindagem aterrada.',
+      'Hall: 3 fios (alimentação 5 V ou 12 V, massa, sinal).',
+      'Meça no conector do sensor, chicote solto, e depois na central para checar o fio.'
+    ],
+    passos:[
+      'Desligue a ignição e desconecte o sensor.',
+      'Indutivo: meça a resistência entre os dois pinos do sensor.',
+      'Meça cada pino contra a massa: deve dar circuito aberto (sem continuidade).',
+      'Confira a folga entre sensor e roda fônica (normalmente 0,5 a 1,5 mm) e dentes danificados.',
+      'Reconecte, ajuste o multímetro em VCA e gire o motor na partida: deve gerar tensão alternada.',
+      'Com osciloscópio: observe onda senoidal (indutivo) ou quadrada (Hall) e a falha dos dentes na roda fônica.'
+    ],
+    tabela:[
+      {cond:'Indutivo – resistência', valor:'250 a 900 Ω', ok:true},
+      {cond:'Indutivo – tensão AC na partida', valor:'acima de 0,5 V AC', ok:true},
+      {cond:'Hall – sinal com motor girando', valor:'pulsos 0 V ↔ 5 V (ou 12 V)', ok:true},
+      {cond:'Resistência aberta ou infinita', valor:'OL', ok:false},
+      {cond:'Curto para massa', valor:'0 Ω pino-carcaça', ok:false},
+      {cond:'Sem sinal na partida', valor:'0 V AC / linha reta', ok:false}
+    ],
+    aviso:'A amplitude do sinal indutivo sobe com a rotação. Compare o valor sempre com o manual do fabricante.'
+  },
+  {
+    id:'ect', nome:'Sensor de Temperatura (ECT)', cat:'Sensores', icone:'🌡️',
+    tags:['ect','ectemperatura','temperatura','agua','água','ntc','arrefecimento','cts'],
+    sintomas:['consumo alto','partida a frio difícil','ventoinha ligada direto','marcha lenta alta','fumaça preta','cheiro de gasolina'],
+    ferramentas:['Multímetro','Termômetro (ou infravermelho)','Água quente'],
+    onde:[
+      'Normalmente 2 fios: sinal (variável) e massa do sensor. A central alimenta com 5 V.',
+      'Sensor com 4 fios: 2 vão ao painel e 2 vão à central. Teste só os da central.'
+    ],
+    passos:[
+      'Com o motor frio, ignição ligada e conector acoplado: meça a tensão no fio de sinal.',
+      'Desconecte e meça a resistência entre os 2 pinos com o motor frio e anote a temperatura.',
+      'Retire o sensor e mergulhe em água aquecendo. Anote a resistência a cada 20 °C.',
+      'Compare com a tabela: a resistência deve cair de forma contínua, sem saltos.',
+      'Confira a alimentação de 5 V no conector (chicote solto, ignição ligada).'
+    ],
+    tabela:[
+      {cond:'20 °C', valor:'2.200 a 2.700 Ω', ok:true},
+      {cond:'40 °C', valor:'1.000 a 1.300 Ω', ok:true},
+      {cond:'80 °C', valor:'280 a 360 Ω', ok:true},
+      {cond:'100 °C', valor:'170 a 220 Ω', ok:true},
+      {cond:'Tensão de sinal motor frio', valor:'3,0 a 4,2 V', ok:true},
+      {cond:'Tensão de sinal motor quente', valor:'0,4 a 1,0 V', ok:true},
+      {cond:'Valor fixo ou salta ao aquecer', valor:'sem variação', ok:false}
+    ],
+    aviso:'Resistência muito fora da curva faz a central achar que o motor está frio e enriquecer a mistura.'
+  },
+  {
+    id:'lambda', nome:'Sonda Lambda (zircônia, 4 fios)', cat:'Sensores', icone:'💨',
+    tags:['lambda','sonda','o2','oxigenio','oxigênio','escape','aquecimento','zirconia'],
+    sintomas:['consumo alto','falha','marcha lenta irregular','luz da injeção acesa','cheiro de gasolina no escapamento','perda de potência'],
+    ferramentas:['Multímetro','Osciloscópio','Scanner OBD (opcional)'],
+    onde:[
+      'Fios brancos (2): aquecimento. Um recebe +12 V e o outro vai à central.',
+      'Fio preto: sinal da sonda (0,1 a 0,9 V).',
+      'Fio cinza: massa do sinal. Cores variam: veja o esquema do seu modelo.'
+    ],
+    passos:[
+      'Com o motor desligado, desconecte a sonda e meça a resistência entre os dois fios brancos (aquecimento).',
+      'Ignição ligada e conector do chicote solto: confirme +12 V no fio de alimentação do aquecedor.',
+      'Reconecte, aqueça o motor até ligar a ventoinha. Meça o fio preto contra a massa em VCC.',
+      'Acelere a 2.500 rpm: a tensão deve oscilar entre pobre e rica.',
+      'Faça um teste rápido: acelere de repente (tensão sobe perto de 0,9 V) e solte (cai perto de 0,1 V).',
+      'Use o osciloscópio para ver a frequência de transições e a velocidade de resposta.'
+    ],
+    tabela:[
+      {cond:'Aquecedor – resistência', valor:'2 a 10 Ω', ok:true},
+      {cond:'Aquecedor – alimentação', valor:'11,5 a 14,5 V', ok:true},
+      {cond:'Sinal em malha fechada', valor:'0,1 ↔ 0,9 V oscilando', ok:true},
+      {cond:'Frequência a 2.500 rpm', valor:'acima de 1 Hz (1 a 3 ciclos/s)', ok:true},
+      {cond:'Sinal parado em ~0,45 V', valor:'sonda inativa', ok:false},
+      {cond:'Sinal preso alto (>0,8 V) ou baixo (<0,2 V)', valor:'mistura travada ou sonda gasta', ok:false},
+      {cond:'Aquecedor aberto', valor:'OL', ok:false}
+    ],
+    aviso:'Antes de condenar a sonda, procure vazamento no escapamento e injetor vazando: eles falseiam a leitura.'
+  },
+  {
+    id:'bico', nome:'Bico Injetor', cat:'Atuadores', icone:'💧',
+    tags:['bico','injetor','injecao','injeção','combustivel','combustível','alta impedancia','baixa impedancia'],
+    sintomas:['falha','marcha lenta irregular','consumo alto','cheiro de gasolina','difícil de dar partida a quente','perda de potência','trepidação'],
+    ferramentas:['Multímetro','Lâmpada de teste (noid light)','Osciloscópio','Estetoscópio mecânico'],
+    onde:[
+      'Conector de 2 pinos: um recebe +12 V (pós-relé) e o outro é o pulso negativo da central.',
+      'Meça direto nos pinos do injetor (resistência) e no conector do chicote (tensão e pulso).'
+    ],
+    passos:[
+      'Desconecte o injetor e meça a resistência entre os dois pinos.',
+      'Compare os injetores entre si: a diferença deve ser pequena (até 1 Ω).',
+      'Com ignição ligada, confirme +12 V em um dos pinos do conector do chicote.',
+      'Encaixe a lâmpada noid no conector e dê a partida: ela deve piscar em ritmo constante.',
+      'Escute cada bico com estetoscópio: um estalo seco e regular indica funcionamento.',
+      'No osciloscópio, o pulso deve cair a 0 V e gerar um pico indutivo ao fechar.'
+    ],
+    tabela:[
+      {cond:'Alta impedância – resistência', valor:'11 a 16 Ω', ok:true},
+      {cond:'Baixa impedância – resistência', valor:'1 a 3 Ω', ok:true},
+      {cond:'Alimentação no conector', valor:'11,5 a 14,5 V', ok:true},
+      {cond:'Pulso em marcha lenta', valor:'2 a 4 ms', ok:true},
+      {cond:'Bobina aberta', valor:'OL', ok:false},
+      {cond:'Curto interno', valor:'bem abaixo da faixa (ex.: 3 Ω em alta imp.)', ok:false},
+      {cond:'Sem estalo ou sem pulso', valor:'sem sinal da central ou injetor travado', ok:false}
+    ],
+    aviso:'Nunca use fonte direta de 12 V em injetor de baixa impedância sem resistor. Confirme o tipo antes.'
+  },
+  {
+    id:'map', nome:'Sensor MAP', cat:'Sensores', icone:'🧭',
+    tags:['map','pressao','pressão','coletor','admissao','admissão','vacuo','vácuo','turbo'],
+    sintomas:['falta de potência','consumo alto','marcha lenta instável','fumaça preta','falha na aceleração','luz da injeção acesa'],
+    ferramentas:['Multímetro','Bomba de vácuo manual','Osciloscópio'],
+    onde:[
+      '3 fios: +5 V (referência), sinal e massa.',
+      'Meça no conector com ignição ligada: 5 V entre referência e massa, e o sinal no pino do meio (na maioria dos modelos).'
+    ],
+    passos:[
+      'Ignição ligada, motor desligado: meça a alimentação de 5 V no conector do chicote.',
+      'Reconecte e meça o sinal com motor desligado (deve indicar pressão atmosférica).',
+      'Ligue o motor: o sinal deve cair em marcha lenta, por causa do vácuo.',
+      'Aplique vácuo com a bomba manual no sensor solto: a tensão deve diminuir gradualmente.',
+      'Faça uma aceleração brusca: a tensão sobe rápido, perto do valor de motor desligado.',
+      'Inspecione a mangueira do sensor contra rachaduras e entupimento.'
+    ],
+    tabela:[
+      {cond:'Referência (5 V)', valor:'4,8 a 5,2 V', ok:true},
+      {cond:'Ignição ligada, motor parado', valor:'3,8 a 4,8 V (nível do mar)', ok:true},
+      {cond:'Marcha lenta', valor:'0,8 a 1,6 V', ok:true},
+      {cond:'Aceleração total', valor:'sobe perto de 4 V ou mais', ok:true},
+      {cond:'Sinal fixo e sem resposta ao vácuo', valor:'sensor travado', ok:false},
+      {cond:'Referência baixa ou ausente', valor:'defeito no chicote ou na central', ok:false}
+    ],
+    aviso:'Se a tensão em marcha lenta estiver alta, procure entrada falsa de ar ou mangueira solta antes de trocar o sensor.'
+  },
+  {
+    id:'can', nome:'Rede CAN e alimentação de 5 V da central', cat:'Redes/Módulos', icone:'🔌',
+    tags:['can','rede','modulo','módulo','central','ecu','5v','alimentacao','alimentação','obd','comunicacao','comunicação','terminador'],
+    sintomas:['scanner não comunica','vários alertas no painel','sensores sem leitura ao mesmo tempo','não pega','luzes acendem juntas','perda de comunicação'],
+    ferramentas:['Multímetro','Osciloscópio','Esquema elétrico','Conector breakout OBD'],
+    onde:[
+      'Conector OBD2: pino 6 é CAN-H e pino 14 é CAN-L.',
+      'Pino 4 e pino 5: massa. Pino 16: +12 V da bateria.',
+      'Alimentação de 5 V dos sensores: veja no esquema o pino de referência da central (varia por modelo).'
+    ],
+    passos:[
+      'Desligue a ignição e aguarde 1 minuto. Meça a resistência entre os pinos 6 e 14 do OBD2.',
+      'Se o valor estiver fora de 60 Ω, desconecte módulos um por vez e meça de novo (resistores de 120 Ω nas pontas).',
+      'Ligue a ignição e meça cada fio contra a massa: dá cerca de 2,5 V nos dois em repouso.',
+      'Pelo osciloscópio, conecte CAN-H e CAN-L: veja os dois sinais espelhados com cruzamento limpo.',
+      'Para a alimentação de 5 V: desconecte um sensor por vez. Se a tensão voltar, esse sensor está em curto.',
+      'Cheque massas e +12 V da central: medir queda de tensão com carga (máx. 0,2 V).'
+    ],
+    tabela:[
+      {cond:'Resistência CAN-H ↔ CAN-L (bateria desligada)', valor:'≈ 60 Ω', ok:true},
+      {cond:'CAN-H em atividade', valor:'2,5 V ↔ 3,5 V', ok:true},
+      {cond:'CAN-L em atividade', valor:'2,5 V ↔ 1,5 V', ok:true},
+      {cond:'Referência de 5 V dos sensores', valor:'4,9 a 5,1 V', ok:true},
+      {cond:'Resistência ≈ 120 Ω', valor:'um terminador desconectado', ok:false},
+      {cond:'Resistência ≈ 0 a 10 Ω', valor:'curto entre H e L', ok:false},
+      {cond:'CAN-H ou CAN-L fixo em 0 V ou 12 V', valor:'curto para massa ou positivo', ok:false}
+    ],
+    aviso:'Mexa no chicote de rede com a bateria desconectada e confirme o pinout no esquema do modelo.'
+  }
+];
+
+
+/* =====================================================================
+   BASE DE VEÍCULOS (por família de motor)
+   Formato: [marca, modelos, motor, medição de ar, CKP, sonda lambda,
+             bico, observação de teste, [ids dos testes]]
+   Dados TÍPICOS por família: confirme no esquema do seu modelo/ano.
+   Para adicionar mais, copie uma linha e edite.
+   ===================================================================== */
+const VEICULOS = [
+ ["Volkswagen","Gol, Voyage, Saveiro (G3 a G6), Fox, Polo clássico","EA111 1.0 / 1.6 8V flex","MAP","Indutivo","Zircônia 4 fios (1 ou 2 sondas)","Alta impedância","Marcha lenta instável: comece por entrada falsa de ar e pelo MAP. Partida a frio ruim no flex: veja ECT e bicos.",["map","ect","ckp","lambda","bico"]],
+ ["Volkswagen","Polo, Virtus, T-Cross (1.0 MPI)","EA211 1.0 12V MPI","MAP","Hall","Banda larga antes do catalisador + zircônia depois (típico)","Alta impedância","CKP Hall: teste os 3 fios (alimentação, massa, sinal) e use osciloscópio.",["map","ckp","ect","lambda","bico"]],
+ ["Volkswagen","Polo, Virtus, Nivus, T-Cross (1.0 e 1.4 TSI)","EA211 TSI turbo, injeção direta","MAP (pressão do coletor) + pressão de carga","Hall","Banda larga","Injetor de alta pressão (GDI)","Não aplique 12 V direto nem meça como bico MPI. Use scanner e esquema para testar a linha de alta pressão.",["map","ckp","ect","lambda"]],
+ ["Fiat","Uno, Palio, Siena, Strada, Mobi (Fire)","Fire 1.0 / 1.4 8V flex","MAP","Indutivo","Zircônia 4 fios","Alta impedância","Falha em marcha lenta: confira bicos, bobina e massa da central antes do sensor.",["map","ckp","ect","lambda","bico"]],
+ ["Fiat","Argo, Mobi, Cronos, Pulse (Firefly)","Firefly 1.0 / 1.3 flex","MAP","Conferir no esquema","Conferir no esquema","Alta impedância","Família mais nova: valide pinagem e tipo de CKP no esquema do ano.",["map","ckp","ect","bico"]],
+ ["Fiat","Palio, Siena, Idea, Punto (E.torQ)","E.torQ 1.6 / 1.8 16V flex","MAP","Indutivo (típico)","Zircônia (típico)","Alta impedância","Meça resistência do CKP e compare com o manual do modelo.",["map","ckp","ect","lambda","bico"]],
+ ["Chevrolet","Celta, Prisma, Corsa, Classic","VHC / Econo.Flex 1.0 / 1.4","MAP","Indutivo","Zircônia 4 fios","Alta impedância","Consumo alto: teste ECT na curva de temperatura e a sonda lambda.",["map","ckp","ect","lambda","bico"]],
+ ["Chevrolet","Onix, Prisma, Cobalt, Spin","SPE/4 1.0 / 1.4 flex","MAP","Conferir no esquema","Zircônia","Alta impedância","Verifique a rede CAN quando houver vários alertas ao mesmo tempo.",["map","ckp","lambda","bico"]],
+ ["Ford","Ka, Fiesta, EcoSport","Rocam 1.0 / 1.6 flex","MAP","Indutivo","Zircônia 4 fios","Alta impedância","Falha na aceleração: teste MAP com vácuo e confira a mangueira.",["map","ckp","ect","lambda","bico"]],
+ ["Ford","Focus, EcoSport","Duratec 2.0 16V","MAF","Indutivo","Zircônia","Alta impedância","Esta família usa MAF (ainda sem card neste guia). Teste ECT, CKP e bicos normalmente.",["ckp","ect","lambda","bico"]],
+ ["Toyota","Corolla, Etios (conferir motor)","1.8 / 2.0 16V VVT-i (Corolla)","MAF","Indutivo (VR)","Banda larga antes + zircônia depois","Alta impedância","Sonda banda larga não se testa como zircônia: use scanner (corrente/razão A/F).",["ckp","ect","bico"]],
+ ["Honda","Civic, Fit, City","1.5 / 1.8 / 2.0 16V","MAP","Conferir no esquema","Banda larga antes + zircônia depois (típico)","Alta impedância","Confirme o tipo de CKP e a pinagem pelo ano exato do veículo.",["map","ect","bico"]],
+ ["Hyundai","HB20, Creta","Kappa / Gamma 1.0 / 1.6 flex","Conferir no esquema","Conferir no esquema","Zircônia ou banda larga (conferir)","Alta impedância","Dados variam por ano: use o esquema do modelo e a tabela do card de cada componente.",["ckp","ect","lambda","bico"]],
+ ["Renault","Sandero, Logan, Clio, Duster","1.0 / 1.6 (D4D, K7M, K4M) flex","MAP","Indutivo","Zircônia","Alta impedância","Cheque o relé da bomba e a alimentação da central quando não pegar.",["map","ckp","ect","lambda","bico"]]
+];
+
+/* ===== Estado e utilitários ===== */
+let categoria = 'todos';
+let termo = '';
+const abertos = new Set();          // cards abertos
+const feitos = new Set();           // passos marcados: "id:indice"
+
+const $lista = document.getElementById('lista');
+const $busca = document.getElementById('busca');
+const $cont  = document.getElementById('contagem');
+
+// remove acentos e coloca em minúsculas para a busca ignorar "é/e", "ã/a"...
+const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+
+// escapa HTML para evitar problemas com símbolos
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ===== Filtro: categoria + busca em tempo real ===== */
+function filtrar(){
+  const q = norm(termo.trim());
+  return COMPONENTES.filter(c=>{
+    if(categoria!=='todos' && c.cat!==categoria) return false;
+    if(!q) return true;
+    const palheiro = norm([c.nome,c.cat,...c.tags,...c.sintomas,...c.ferramentas].join(' '));
+    return q.split(/\s+/).every(p=>palheiro.includes(p));
+  });
+}
+
+
+/* ===== Aba Veículos ===== */
+const rotulo = id => (COMPONENTES.find(c=>c.id===id)||{}).nome || id;
+function veicHTML(v){
+  const chips = v[8].map(id=>`<button class="chip" data-goto="${id}">Testar: ${esc(rotulo(id).replace(/ \(.*\)/,''))}</button>`).join('');
+  return `<article class="card" style="padding:16px">
+    <p class="text-sm" style="color:var(--amber)">${esc(v[0])}</p>
+    <h3 class="display text-2xl font-bold leading-tight">${esc(v[2])}</h3>
+    <p class="text-sm" style="color:var(--muted)">${esc(v[1])}</p>
+    <dl class="specs">
+      <dt>Ar</dt><dd>${esc(v[3])}</dd><dt>CKP</dt><dd>${esc(v[4])}</dd>
+      <dt>Lambda</dt><dd>${esc(v[5])}</dd><dt>Bico</dt><dd>${esc(v[6])}</dd>
+    </dl>
+    <p class="warn mt-3">${esc(v[7])}</p>
+    <div class="chips">${chips}</div></article>`;
+}
+function renderVeiculos(){
+  const q = norm(termo.trim());
+  const L = VEICULOS.filter(v=>!q || q.split(/\s+/).every(p=>norm(v.join(' ')).includes(p)));
+  $cont.textContent = L.length + (L.length===1?' família de motor':' famílias de motor');
+  $lista.innerHTML = '<p class="warn md:col-span-2">Dados típicos por família de motor. Confirme versão, ano e pinagem no esquema elétrico do veículo.</p>'
+    + (L.length ? L.map(veicHTML).join('') : '<div class="card p-6 md:col-span-2 text-center"><p class="display text-2xl">Nada encontrado</p></div>');
+}
+
+/* ===== Renderização ===== */
+function cardHTML(c){
+  const aberto = abertos.has(c.id);
+  const passos = c.passos.map((p,i)=>{
+    const k = c.id+':'+i, on = feitos.has(k);
+    return `<button class="step" role="checkbox" aria-checked="${on}" data-step="${k}">
+      <span class="box">✓</span><span>${esc(p)}</span></button>`;
+  }).join('');
+  const linhas = c.tabela.map(r=>`
+    <tr class="${r.ok?'good':'bad'}">
+      <td>${esc(r.cond)}</td>
+      <td class="v">${esc(r.valor)}</td>
+      <td class="${r.ok?'pill-ok':'pill-bad'} font-semibold">${r.ok?'Bom':'Defeito'}</td>
+    </tr>`).join('');
+
+  return `<article class="card" data-open="${aberto}" id="card-${c.id}">
+    <button class="card-head" data-toggle="${c.id}" aria-expanded="${aberto}">
+      <span class="icon" aria-hidden="true">${c.icone}</span>
+      <span class="flex-1">
+        <span class="display block text-2xl font-bold leading-tight">${esc(c.nome)}</span>
+        <span class="text-sm" style="color:var(--muted)">${esc(c.cat)}</span>
+      </span>
+      <span class="arrow text-xl" aria-hidden="true">▼</span>
+    </button>
+    <div class="body">
+      <div class="sec"><h4>Ferramentas</h4>${c.ferramentas.map(f=>`<span class="tag">${esc(f)}</span>`).join('')}</div>
+      <div class="sec"><h4>Onde medir</h4><ul class="list-disc pl-5 space-y-1">${c.onde.map(o=>`<li>${esc(o)}</li>`).join('')}</ul></div>
+      <div class="sec"><h4>Como testar <span class="text-xs" style="color:var(--muted)">(toque para marcar)</span></h4>${passos}</div>
+      <div class="sec"><h4>Valores de referência</h4>
+        <div class="tbl-wrap"><table><thead><tr><th>Condição</th><th>Leitura</th><th>Resultado</th></tr></thead><tbody>${linhas}</tbody></table></div>
+      </div>
+      <p class="warn mt-3">${esc(c.aviso)}</p>
+      <p class="text-xs mt-3" style="color:var(--muted)">Sintomas ligados: ${c.sintomas.map(esc).join(', ')}.</p>
+    </div>
+  </article>`;
+}
+
+function render(){
+  if(categoria==="Veículos") return renderVeiculos();
+  const lista = filtrar();
+  $cont.textContent = lista.length + (lista.length===1?' componente':' componentes');
+  $lista.innerHTML = lista.length
+    ? lista.map(cardHTML).join('')
+    : `<div class="card p-6 md:col-span-2 text-center"><p class="display text-2xl">Nada encontrado</p>
+       <p style="color:var(--muted)" class="mt-1">Tente outro nome ou sintoma, ou volte para “Todos”.</p></div>`;
+}
+
+/* ===== Eventos ===== */
+$busca.addEventListener('input',e=>{ termo=e.target.value; render(); });
+
+document.getElementById('filtros').addEventListener('click',e=>{
+  const b = e.target.closest('[data-cat]'); if(!b) return;
+  categoria = b.dataset.cat;
+  document.querySelectorAll('#filtros .chip').forEach(x=>x.setAttribute('aria-pressed', x===b));
+  render();
+});
+
+// abrir/fechar card e marcar passos (delegação de eventos)
+$lista.addEventListener('click',e=>{
+  // atalho: da ficha do veículo para o card do componente
+  const g = e.target.closest('[data-goto]');
+  if(g){
+    categoria='todos'; termo=''; $busca.value='';
+    document.querySelectorAll('#filtros .chip').forEach(x=>x.setAttribute('aria-pressed', x.dataset.cat==='todos'));
+    abertos.add(g.dataset.goto); render();
+    document.getElementById('card-'+g.dataset.goto).scrollIntoView({behavior:'smooth'});
+    return;
+  }
+  const t = e.target.closest('[data-toggle]');
+  if(t){
+    const id = t.dataset.toggle;
+    abertos.has(id) ? abertos.delete(id) : abertos.add(id);
+    const card = document.getElementById('card-'+id);
+    card.dataset.open = abertos.has(id);
+    t.setAttribute('aria-expanded', abertos.has(id));
+    return;
+  }
+  const s = e.target.closest('[data-step]');
+  if(s){
+    const k = s.dataset.step;
+    feitos.has(k) ? feitos.delete(k) : feitos.add(k);
+    s.setAttribute('aria-checked', feitos.has(k));
+  }
+});
+
+render();
+} catch(err) {
+  var c = document.getElementById('contagem');
+  if(c){ c.style.color = '#ff5d4d'; c.textContent = 'Erro ao carregar: ' + (err && err.message ? err.message : err); }
+}
+})();
+</script>
+<script>
+/* Registra o service worker: faz o app funcionar sem internet depois da 1ª abertura */
+if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
+  window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+}
+</script>
+</body>
+</html>

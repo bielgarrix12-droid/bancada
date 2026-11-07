@@ -1,0 +1,6 @@
+COMO COLOCAR NO AR (grátis) E INSTALAR NO CELULAR
+1) Envie TODOS os arquivos desta pasta para um hospedeiro com https, por exemplo
+   Netlify Drop (app.netlify.com/drop) ou GitHub Pages. Mantenha o index.html na raiz.
+2) Abra o endereço gerado no Safari (iPhone) ou Chrome (Android).
+3) iPhone: Compartilhar > Adicionar à Tela de Início. Android: menu > Instalar app.
+Depois da primeira abertura, o app funciona sem internet.
